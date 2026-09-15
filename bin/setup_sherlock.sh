@@ -11,7 +11,7 @@
 set -uo pipefail
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 UPSTREAM_REPO="https://github.com/BioSkryb/basej-public-pipelines"
-UPSTREAM_REF="${UPSTREAM_REF:-be348188cee1}"     # pinned 2026-09-14; bump deliberately
+UPSTREAM_REF="${UPSTREAM_REF:-be348188cee13e63b2ac47648edac6b466d112e6}"     # pinned 2026-09-14; bump deliberately
 GROUP_ROOT="/oak/stanford/groups/cgawad"
 GENOMES="${GENOMES:-$GROUP_ROOT/Scripts/Basejumper/genomic_references}"
 type module >/dev/null 2>&1 || source /etc/profile.d/lmod.sh 2>/dev/null || true

@@ -14,13 +14,13 @@ on:
     inputs:
       upstream_ref:
         description: BioSkryb/basej-public-pipelines commit to build from
-        default: be348188cee1
+        default: be348188cee13e63b2ac47648edac6b466d112e6
   push:
     branches: [main]
     paths: ['.github/workflows/mirror-images.yml']
 
 env:
-  UPSTREAM_REF: ${{ github.event.inputs.upstream_ref || 'be348188cee1' }}
+  UPSTREAM_REF: ${{ github.event.inputs.upstream_ref || 'be348188cee13e63b2ac47648edac6b466d112e6' }}
   ECR: public.ecr.aws/v2u5x5f1/basejumper
   GHCR: ghcr.io/gawad-lab-stanford
 
