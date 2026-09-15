@@ -1,0 +1,93 @@
+name: Mirror BaseJumper container images to GHCR
+
+# Sherlock has no Docker daemon, and BioSkryb's public release builds its custom images
+# locally from Dockerfiles ("not hosted in any registry"). This workflow publishes every
+# basejumper_<tag> image the pipelines reference to ghcr.io/gawad-lab-stanford/basejumper_<tag>
+# so Apptainer on Sherlock can pull them (sherlock.config: singularity.registry).
+#   - source: ecr   -> unmodified pull-through of BioSkryb's public ECR image
+#   - source: build -> built from BioSkryb's Dockerfile at the pinned upstream commit
+# Packages must be PUBLIC for anonymous pulls: make this repository public (packages then
+# inherit its visibility) or set each package to public under Org -> Packages.
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: BioSkryb/basej-public-pipelines commit to build from
+        default: be348188cee1
+  push:
+    branches: [main]
+    paths: ['.github/workflows/mirror-images.yml']
+
+env:
+  UPSTREAM_REF: ${{ github.event.inputs.upstream_ref || 'be348188cee1' }}
+  ECR: public.ecr.aws/v2u5x5f1/basejumper
+  GHCR: ghcr.io/gawad-lab-stanford
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ---- basej-dnaqc --------------------------------------------------------
+          - { tag: ubuntu_24.04_stable,               source: ecr }
+          - { tag: seqkit-2.13.0,                     source: ecr }
+          - { tag: samtools-1.23.1,                   source: build, path: basej-dnaqc/container/samtools }
+          - { tag: bwamem2_samtools_2.2.1,            source: build, path: basej-dnaqc/container/bwamem2_samtools }
+          - { tag: picard_addorreplacegroups_3.1.2,   source: ecr }
+          - { tag: ginkgo_0.3.1,                      source: build, path: basej-dnaqc/container/ginkgo }
+          - { tag: preseq_bam2mr_0.1,                 source: ecr }
+          - { tag: ginko_parser_0.2.1,                source: ecr }
+          - { tag: custom_parabricks-metrics_1.0.3,   source: ecr }
+          - { tag: custom_r_qcplots_0.3.0,            source: build, path: basej-dnaqc/container/custom_r_qcplots }
+          # ---- basej-wgs ----------------------------------------------------------
+          - { tag: bwamem2_samtools_picard_1.0.0,     source: build, path: basej-wgs/container/bwamem2_samtools_picard }
+          # ---- basej-rnaqc / basej-rnaproteinqc ------------------------------------
+          - { tag: gene_body_coverage_0.2.1,          source: ecr }
+          - { tag: custom_r_nf_rnaseq_0.9,            source: ecr }
+          - { tag: custom_r_nf_rnaseq_0.10,           source: ecr }
+          - { tag: protein_cpm_0.1,                   source: build, path: basej-rnaproteinqc/container/protein_cpm }
+          # ---- basej-somatic / basej-lineage -------------------------------------
+          - { tag: custom_snp_somatic_filter_sequoia_feb2026, source: ecr }
+          - { tag: utility-lite-0.2.0,                source: build, path: basej-somatic/container/utility-lite-0.2.0 }
+          - { tag: variantannotation_0.4,             source: ecr }
+          - { tag: r_ado_1.2,                         source: ecr }
+          - { tag: sigprofiler-0.1.0,                 source: ecr }
+    steps:
+      - name: Free disk space
+        run: sudo docker system prune -af >/dev/null 2>&1 || true
+
+      - name: Check out BioSkryb/basej-public-pipelines at the pinned commit
+        if: matrix.source == 'build'
+        uses: actions/checkout@v4
+        with:
+          repository: BioSkryb/basej-public-pipelines
+          ref: ${{ env.UPSTREAM_REF }}
+          path: upstream
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull from BioSkryb public ECR
+        if: matrix.source == 'ecr'
+        run: docker pull "${ECR}:${{ matrix.tag }}" && docker tag "${ECR}:${{ matrix.tag }}" "${GHCR}/basejumper_${{ matrix.tag }}:latest"
+
+      - name: Build from the upstream Dockerfile
+        if: matrix.source == 'build'
+        run: docker build -t "${GHCR}/basejumper_${{ matrix.tag }}:latest" "upstream/${{ matrix.path }}"
+
+      - name: Push (latest + upstream-commit tag)
+        run: |
+          docker tag "${GHCR}/basejumper_${{ matrix.tag }}:latest" "${GHCR}/basejumper_${{ matrix.tag }}:${UPSTREAM_REF}"
+          docker push "${GHCR}/basejumper_${{ matrix.tag }}:latest"
+          docker push "${GHCR}/basejumper_${{ matrix.tag }}:${UPSTREAM_REF}"

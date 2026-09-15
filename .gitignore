@@ -1,0 +1,8 @@
+# upstream checkout and run-time artifacts live on Sherlock, not in this repo
+pipelines/
+bin/nextflow
+.nextflow*
+work/
+*.log
+_build_logs/
+.DS_Store
