@@ -11,6 +11,10 @@
 #
 # Optional:
 #   --genome NAME       GRCh38 (default) | GRCm39 | GRCh38_decoy_hla
+#   --genomes-base DIR  reference bundle (default: the lab's OAK genomic_references). Passed on the
+#                       command line on purpose: upstream's genomes.config bakes this into the
+#                       reference paths at load time, so a -c config file is too late to change it.
+#   --read-length N     read length used to pick the Ginkgo CNV reference (default 150; same caveat)
 #   --mode MODE         wgs pipeline only: wgs (default) | exome
 #   --workspace NAME    label used inside the output tree (default: gawadlab)
 #   --workflow-id ID    stable run id used in output paths (default: <pipeline>_<timestamp>)
@@ -37,6 +41,7 @@ NXF_BIN="${NXF_BIN:-$ROOT/bin/nextflow}"   # self-contained launcher fetched by 
 [ -x "$NXF_BIN" ] || NXF_BIN="nextflow"
 
 PIPELINE=""; INPUT=""; OUTDIR=""; GENOME="GRCh38"; MODE=""; WORKSPACE="gawadlab"
+GENOMES_BASE="/oak/stanford/groups/cgawad/Scripts/Basejumper/genomic_references"; READ_LENGTH="150"
 WFID=""; RESUME=""; WORKDIR=""; SUBMIT=0; TIME="3-00:00:00"; PARTITION="cgawad"; DRYRUN=0; EXTRA=""
 
 usage() { grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
@@ -47,6 +52,8 @@ while [[ $# -gt 0 ]]; do
     --input)       INPUT="$2"; shift 2 ;;
     --outdir)      OUTDIR="$2"; shift 2 ;;
     --genome)      GENOME="$2"; shift 2 ;;
+    --genomes-base) GENOMES_BASE="$2"; shift 2 ;;
+    --read-length) READ_LENGTH="$2"; shift 2 ;;
     --mode)        MODE="$2"; shift 2 ;;
     --workspace)   WORKSPACE="$2"; shift 2 ;;
     --workflow-id) WFID="$2"; shift 2 ;;
@@ -89,6 +96,7 @@ if [ "$PIPELINE" = "methylseq" ]; then
 else
   NF_CMD="$NXF_BIN run $PDIR/main.nf -profile singularity -c $CONF/sherlock.config $EXTRA_CONF \
     --input_csv $INPUT --outputDir $OUTDIR --genome $GENOME $MODE_ARG \
+    --genomes_base $GENOMES_BASE --read_length $READ_LENGTH \
     --workspace $WORKSPACE --workflow_id $WFID -work-dir $WORKDIR $RESUME $EXTRA"
 fi
 
