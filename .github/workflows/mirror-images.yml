@@ -9,15 +9,13 @@ name: Mirror BaseJumper container images to GHCR
 # Packages must be PUBLIC for anonymous pulls: make this repository public (packages then
 # inherit its visibility) or set each package to public under Org -> Packages.
 
+# Run on demand only (Actions -> "Run workflow"); a push should not rebuild all 20 images.
 on:
   workflow_dispatch:
     inputs:
       upstream_ref:
         description: BioSkryb/basej-public-pipelines commit to build from
         default: be348188cee13e63b2ac47648edac6b466d112e6
-  push:
-    branches: [main]
-    paths: ['.github/workflows/mirror-images.yml']
 
 env:
   UPSTREAM_REF: ${{ github.event.inputs.upstream_ref || 'be348188cee13e63b2ac47648edac6b466d112e6' }}
@@ -33,6 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 6          # BioSkryb's public ECR rate-limits anonymous pulls ("toomanyrequests")
       matrix:
         include:
           # ---- basej-dnaqc --------------------------------------------------------
@@ -80,7 +79,14 @@ jobs:
 
       - name: Pull from BioSkryb public ECR
         if: matrix.source == 'ecr'
-        run: docker pull "${ECR}:${{ matrix.tag }}" && docker tag "${ECR}:${{ matrix.tag }}" "${GHCR}/basejumper_${{ matrix.tag }}:latest"
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            docker pull "${ECR}:${{ matrix.tag }}" && break
+            echo "pull attempt $attempt failed (likely ECR rate limit); retrying in $((attempt*30))s"
+            sleep $((attempt*30))
+            [ "$attempt" -eq 6 ] && exit 1
+          done
+          docker tag "${ECR}:${{ matrix.tag }}" "${GHCR}/basejumper_${{ matrix.tag }}:latest"
 
       - name: Build from the upstream Dockerfile
         if: matrix.source == 'build'
