@@ -14,7 +14,9 @@ UPSTREAM_REPO="https://github.com/BioSkryb/basej-public-pipelines"
 UPSTREAM_REF="${UPSTREAM_REF:-be348188cee13e63b2ac47648edac6b466d112e6}"     # pinned 2026-09-14; bump deliberately
 GROUP_ROOT="/oak/stanford/groups/cgawad"
 GENOMES="${GENOMES:-$GROUP_ROOT/Scripts/Basejumper/genomic_references}"
-type module >/dev/null 2>&1 || source /etc/profile.d/lmod.sh 2>/dev/null || true
+type module >/dev/null 2>&1 || source "${LMOD_PKG:-/share/software/user/open/lmod/lmod}/init/bash" 2>/dev/null || true
+module load system git 2>/dev/null                                   # login-node default git is 1.8 (no `git -C`)
+module load java/17.0.4 2>/dev/null || module load java 2>/dev/null  # Nextflow 25 needs Java 17-24
 
 echo "== 1. upstream pipelines -> $ROOT/pipelines @ $UPSTREAM_REF"
 if [ -d "$ROOT/pipelines/.git" ]; then git -C "$ROOT/pipelines" fetch -q origin
@@ -32,7 +34,7 @@ done
 
 echo "== 4. prerequisites"
 echo -n "   container runtime: "; (which apptainer || which singularity) 2>/dev/null || echo "NONE on PATH — check 'ml spider apptainer'"
-echo -n "   java (Nextflow 25 needs 17-24): "; (module load java/17.0.4 2>/dev/null || module load java 2>/dev/null); java -version 2>&1 | head -1 || echo "none — check 'ml spider java'"
+echo -n "   java (Nextflow 25 needs 17-24): "; java -version 2>&1 | head -1 || echo "none — check 'ml spider java'"
 echo -n "   nextflow ${NXF_VER:-25.10.2}: "; NXF_VER="${NXF_VER:-25.10.2}" "$ROOT/bin/nextflow" -version 2>/dev/null | grep -m1 -E 'version' || echo "could not start (java?)"
 
 echo "== 5. reference bundle: $GENOMES"

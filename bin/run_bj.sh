@@ -94,7 +94,7 @@ fi
 
 BODY=$(cat <<EOF
 set -euo pipefail
-type module >/dev/null 2>&1 || source /etc/profile.d/lmod.sh 2>/dev/null || true
+type module >/dev/null 2>&1 || source "\${LMOD_PKG:-/share/software/user/open/lmod/lmod}/init/bash" 2>/dev/null || true
 module purge
 module load java/17.0.4 2>/dev/null || module load java
 export NXF_VER=${NXF_VER_PIN}
